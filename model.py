@@ -1,8 +1,3 @@
-"""
-model.py — Core Transformer architecture
-Implements: Scaled Dot-Product Attention, Multi-Head Attention,
-Positional Encoding, Encoder/Decoder stacks, and the full Transformer.
-"""
 
 import math
 import os
@@ -341,8 +336,6 @@ class Transformer(nn.Module):
         english = model.infer(german_sentence)
     """
 
-    # ── class-level paths / IDs (edit before submission) ──────────────────
-    # Google Drive file-id of your saved checkpoint (weights only, state_dict)
     GDRIVE_FILE_ID:       str = "1KFXlfeR8aL8Br3nmVZjg8oay9_5Isf_i"
     GDRIVE_SRC_VOCAB_ID:  str = "12BOXH_dwIeTWau1BunljHHpIdzUhLyam"
     GDRIVE_TGT_VOCAB_ID:  str = "18WTsnTDU4US-59_r__HpV2mYm-ivp_1J"
