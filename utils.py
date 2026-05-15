@@ -1,16 +1,8 @@
-"""
-utils.py — Label Smoothing, Noam LR Scheduler, and Masking Utilities
-"""
-
 import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-# ──────────────────────────────────────────────
-# 1.  Label-Smoothing Loss
-# ──────────────────────────────────────────────
 
 class LabelSmoothingLoss(nn.Module):
     """
@@ -64,10 +56,6 @@ class LabelSmoothingLoss(nn.Module):
         non_pad = (~mask).sum().clamp(min=1)
         return loss.sum() / non_pad
 
-
-# ──────────────────────────────────────────────
-# 2.  Noam Learning-Rate Scheduler
-# ──────────────────────────────────────────────
 
 class NoamScheduler:
     """
@@ -126,10 +114,6 @@ class NoamScheduler:
     def current_step(self) -> int:
         return self._step_num
 
-
-# ──────────────────────────────────────────────
-# 3.  Masking utilities (stand-alone, reusable)
-# ──────────────────────────────────────────────
 
 def make_src_mask(src: torch.Tensor, pad_idx: int = 0) -> torch.Tensor:
     """
