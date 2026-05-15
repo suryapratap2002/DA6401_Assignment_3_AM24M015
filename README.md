@@ -1,5 +1,10 @@
 # Assignment 3 — Transformer NMT (German → English)
 
+Github link:  https://github.com/suryapratap2002/DA6401_Assignment_3_AM24M015
+
+Wandb Report Link: 
+
+
 Implementation of **"Attention Is All You Need"** (Vaswani et al., 2017) for Neural Machine Translation on the Multi30k dataset, built from scratch using PyTorch.
 
 ---
