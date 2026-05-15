@@ -21,10 +21,8 @@ assignment3/
 ## Setup
 
 ### 1. Install PyTorch with CUDA
-Check your CUDA version first: `nvidia-smi`
 
 ```bash
-# CUDA 12.4 (works with CUDA 13.x drivers too — backwards compatible)
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
 ```
 
@@ -114,19 +112,6 @@ english_sentence = model.infer(german_sentence)
 3. Downloads `transformer_best.pt` from Google Drive via `gdown`
 4. Loads weights into the model
 
-### Example
-```python
-from model import Transformer
-import torch
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = Transformer().to(device)
-model.eval()
-
-print(model.infer("Ein Mann sitzt auf einer Bank."))
-# Output: a man sitting on a bench .
-```
-
 ---
 
 ## Dataset
@@ -143,55 +128,3 @@ Source: `bentrevett/multi30k` on HuggingFace Datasets.
 Tokenisation: spaCy (`de_core_news_sm` for German, `en_core_web_sm` for English), lowercased.  
 Vocabulary: min_freq = 2 (words appearing < 2 times mapped to `<unk>`).
 
----
-
-## Autograder Tests — Local Verification
-
-Run before submitting to confirm all unit tests pass:
-
-```bash
-python test_autograder.py
-```
-
-Expected output:
-```
-✓ PASS  ScaledDotProduct output shape
-✓ PASS  Attention weights sum to 1 over key dim
-✓ PASS  Masked positions receive zero attention weight
-✓ PASS  MHA output shape under varying d_model / num_heads
-✓ PASS  Causal mask produces different output than unmasked
-✓ PASS  PE output shape preserved
-✓ PASS  PE even dims == sin(0)=0 at position 0
-✓ PASS  PE odd dims == cos(0)=1 at position 0
-✓ PASS  PE formula correct at arbitrary (pos, dim)
-✓ PASS  PE registered as buffer, not trainable parameter
-✓ PASS  LR monotonically increasing during warm-up
-✓ PASS  Peak within 10 steps of warmup_steps
-✓ PASS  LR monotonically decreasing after warm-up
-✓ PASS  Peak LR matches closed-form formula
-✓ PASS  LR at step 1 matches formula
-
-Result: 15 passed / 0 failed / 15 total
-```
-
----
-
-## Submission Checklist
-
-- [ ] Train model: `python train.py --batch 64 --accum_steps 2 --epochs 30`
-- [ ] Upload `transformer_best.pt`, `src_vocab.pt`, `tgt_vocab.pt` to Google Drive
-- [ ] Set each file to **"Anyone with the link → Viewer"**
-- [ ] Fill in `GDRIVE_FILE_ID`, `GDRIVE_SRC_VOCAB_ID`, `GDRIVE_TGT_VOCAB_ID` in `model.py`
-- [ ] Run `python test_autograder.py` — confirm 15/15 pass
-- [ ] Test `model.infer("Ein Mann sitzt auf einer Bank.")` — confirm clean output
-- [ ] Submit `model.py`, `utils.py`, `dataset.py`, `train.py` to Gradescope
-- [ ] **Do NOT upload** `.pt` files to Gradescope — they download automatically
-
----
-
-## References
-
-- Vaswani et al. (2017). *Attention Is All You Need*. NeurIPS.  
-  https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf
-- Multi30k Dataset: https://huggingface.co/datasets/bentrevett/multi30k
-- GitHub Skeleton: https://github.com/MiRL-IITM/da6401_assignment_3
