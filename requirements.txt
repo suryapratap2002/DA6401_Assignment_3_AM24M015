@@ -1,0 +1,23 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PyTorch — install MANUALLY before running pip install -r requirements.txt
+#
+# Your driver reports CUDA 13.2. PyTorch does not yet ship a cu130 wheel,
+# but CUDA drivers are BACKWARDS COMPATIBLE — the cu124 wheel works fine.
+#
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+#
+# Verify GPU is visible after installing:
+#   python -c "import torch; print(torch.cuda.is_available(), torch.version.cuda)"
+#   # Expected output: True  12.4
+# ─────────────────────────────────────────────────────────────────────────────
+
+# All other dependencies (install after torch)
+numpy
+spacy>=3.0.0
+datasets
+sacrebleu
+gdown
+tqdm
+matplotlib
+scikit-learn
+wandb
