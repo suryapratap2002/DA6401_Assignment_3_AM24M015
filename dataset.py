@@ -9,9 +9,6 @@ import spacy
 from collections import Counter
 
 
-# ──────────────────────────────────────────────
-# Special tokens
-# ──────────────────────────────────────────────
 PAD_TOKEN = "<pad>"   # 0
 UNK_TOKEN = "<unk>"   # 1
 SOS_TOKEN = "<sos>"   # 2
@@ -22,11 +19,6 @@ PAD_IDX  = 0
 UNK_IDX  = 1
 SOS_IDX  = 2
 EOS_IDX  = 3
-
-
-# ──────────────────────────────────────────────
-# Vocabulary
-# ──────────────────────────────────────────────
 
 class Vocabulary:
     """Simple word-level vocabulary built from a list of tokenised sentences."""
