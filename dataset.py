@@ -1,10 +1,4 @@
-"""
-dataset.py — Multi30k dataset loading and spaCy tokenisation.
 
-Builds source (German) and target (English) vocabularies and saves them
-to disk as  src_vocab.pt  and  tgt_vocab.pt  so the Transformer.__init__
-can reload them at inference time without needing the datasets library.
-"""
 
 import os
 import re
