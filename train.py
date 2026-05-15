@@ -1,12 +1,3 @@
-"""
-train.py — Training loop, validation, and evaluation for the Transformer NMT model.
-
-Run:
-    python train.py                   # full training (memory-safe defaults)
-    python train.py --batch 32        # if still crashing, lower batch further
-    python train.py --batch 64 --accum_steps 2   # gradient accumulation
-"""
-
 import argparse
 import gc
 import math
@@ -28,7 +19,7 @@ from dataset import (
     Vocabulary,
 )
 
-# Optional: BLEU via sacrebleu (preferred) or nltk
+
 try:
     import sacrebleu
     USE_SACREBLEU = True
@@ -38,11 +29,6 @@ except ImportError:
         from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction
     except ImportError:
         USE_SACREBLEU = False
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Lightweight training-only Transformer wrapper
-# ──────────────────────────────────────────────────────────────────────────────
 
 class _TrainTransformer(nn.Module):
     """
@@ -78,11 +64,6 @@ class _TrainTransformer(nn.Module):
         mem = self.encoder(src, sm)
         out = self.decoder(tgt, mem, tm, sm)
         return self.projection(out)
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Greedy decoding
-# ──────────────────────────────────────────────────────────────────────────────
 
 @torch.no_grad()
 def greedy_decode(model, src, tgt_vocab, device, max_len=100):
