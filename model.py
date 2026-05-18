@@ -342,15 +342,15 @@ class Transformer(nn.Module):
         english = model.infer(german_sentence)
     """
 
-    # ── class-level paths / IDs (edit before submission) ──────────────────
     # Google Drive file-id of your saved checkpoint (weights only, state_dict)
-    GDRIVE_FILE_ID:       str = "1KFXlfeR8aL8Br3nmVZjg8oay9_5Isf_i"    # ← replace
-    GDRIVE_SRC_VOCAB_ID:  str = "12BOXH_dwIeTWau1BunljHHpIdzUhLyam"  # ← replace
-    GDRIVE_TGT_VOCAB_ID:  str = "18WTsnTDU4US-59_r__HpV2mYm-ivp_1J"  # ← replace
+    GDRIVE_FILE_ID: str = "1KFXlfeR8aL8Br3nmVZjg8oay9_5Isf_i"  # ← replace
+    GDRIVE_SRC_VOCAB_ID: str = "12BOXH_dwIeTWau1BunljHHpIdzUhLyam"  # ← replace
+    GDRIVE_TGT_VOCAB_ID: str = "18WTsnTDU4US-59_r__HpV2mYm-ivp_1J"  # ← replace
 
-    WEIGHTS_FILENAME:  str = "transformer_best.pt"
-    SRC_VOCAB_PATH:    str = "src_vocab.pt"
-    TGT_VOCAB_PATH:    str = "tgt_vocab.pt"
+    WEIGHTS_FILENAME: str = "transformer_best.pt"
+    SRC_VOCAB_PATH: str = "src_vocab.pt"
+    TGT_VOCAB_PATH: str = "tgt_vocab.pt"
+
     # ──────────────────────────────────────────────────────────────────────
 
     def __init__(
@@ -544,17 +544,12 @@ class Transformer(nn.Module):
         return [tok.text.lower() for tok in self.tgt_tokenizer(sentence)]
 
     def _encode_src(self, tokens: list[str]) -> torch.Tensor:
-        ids = []
-        for t in tokens:
-            idx = self.src_vocab.get(t, self.unk_idx)
-            if idx == self.unk_idx:
-                print(f"[infer] WARNING: '{t}' not in src vocab → <unk>")
-            ids.append(idx)
+        ids = [self.src_vocab.get(t, self.unk_idx) for t in tokens]
         return torch.tensor(ids, dtype=torch.long)
 
     # ── Greedy decoding / infer ───────────────────────────────────────────
 
-    def infer(self, german_sentence: str, max_output_len: int = 100) -> str:
+    def infer(self, german_sentence: str, max_output_len: int = 50) -> str:
         """
         End-to-end inference:
           1. Tokenise the German sentence with spaCy
@@ -568,27 +563,46 @@ class Transformer(nn.Module):
 
         # --- Source encoding ---
         src_tokens = self._tokenize_src(german_sentence)
-        src_ids = self._encode_src(src_tokens).unsqueeze(0).to(device)  # (1, src_len)
-        src_mask = self._make_src_mask(src_ids)
+        src_ids    = self._encode_src(src_tokens).unsqueeze(0).to(device)  # (1, src_len)
+        src_mask   = self._make_src_mask(src_ids)
 
         with torch.no_grad():
             memory = self.encoder(src_ids, src_mask)
 
-            # Start with <sos>
-            tgt_ids = torch.tensor([[self.sos_idx]], dtype=torch.long, device=device)
+            # Start decoder with <sos> token
+            tgt_ids = torch.tensor(
+                [[self.sos_idx]], dtype=torch.long, device=device
+            )  # (1, 1)
 
             for _ in range(max_output_len):
                 tgt_mask = self._make_tgt_mask(tgt_ids)
-                dec_out = self.decoder(tgt_ids, memory, tgt_mask, src_mask)
-                logits = self.projection(dec_out)              # (1, t, vocab)
-                next_id = logits[:, -1, :].argmax(dim=-1)      # (1,)
+                dec_out  = self.decoder(tgt_ids, memory, tgt_mask, src_mask)
+                logits   = self.projection(dec_out)        # (1, t, vocab)
+                next_id  = logits[0, -1, :].argmax().item()  # scalar int
 
-                if next_id.item() == self.eos_idx:
+                if next_id == self.eos_idx:
                     break
 
-                tgt_ids = torch.cat([tgt_ids, next_id.unsqueeze(0)], dim=1)
+                tgt_ids = torch.cat(
+                    [tgt_ids,
+                     torch.tensor([[next_id]], dtype=torch.long, device=device)],
+                    dim=1,
+                )  # (1, t+1)
 
-        # Decode to string (skip <sos>)
+        # Decode to string (skip <sos> at index 0)
         predicted_ids = tgt_ids[0, 1:].tolist()
         tokens = [self.tgt_itos.get(i, "<unk>") for i in predicted_ids]
-        return " ".join(tokens)
+
+        # Detokenize: attach punctuation to preceding word
+        words = []
+        for tok in tokens:
+            if tok in {".", ",", "!", "?", ";", ":", "'"} and words:
+                words[-1] = words[-1] + tok
+            else:
+                words.append(tok)
+        return " ".join(words)
+
+
+
+
+
