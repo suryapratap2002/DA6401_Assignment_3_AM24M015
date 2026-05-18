@@ -342,15 +342,14 @@ class Transformer(nn.Module):
         english = model.infer(german_sentence)
     """
 
-    # Google Drive file-id of your saved checkpoint (weights only, state_dict)
-    GDRIVE_FILE_ID: str = "1KFXlfeR8aL8Br3nmVZjg8oay9_5Isf_i"  # ← replace
-    GDRIVE_SRC_VOCAB_ID: str = "12BOXH_dwIeTWau1BunljHHpIdzUhLyam"  # ← replace
-    GDRIVE_TGT_VOCAB_ID: str = "18WTsnTDU4US-59_r__HpV2mYm-ivp_1J"  # ← replace
+    # ── class-level paths / IDs (edit before submission) ──────────────────
+    GDRIVE_FILE_ID:       str = "1KFXlfeR8aL8Br3nmVZjg8oay9_5Isf_i"
+    GDRIVE_SRC_VOCAB_ID:  str = "12BOXH_dwIeTWau1BunljHHpIdzUhLyam"
+    GDRIVE_TGT_VOCAB_ID:  str = "18WTsnTDU4US-59_r__HpV2mYm-ivp_1J"
 
     WEIGHTS_FILENAME: str = "transformer_best.pt"
-    SRC_VOCAB_PATH: str = "src_vocab.pt"
-    TGT_VOCAB_PATH: str = "tgt_vocab.pt"
-
+    SRC_VOCAB_PATH:   str = "src_vocab.pt"
+    TGT_VOCAB_PATH:   str = "tgt_vocab.pt"
     # ──────────────────────────────────────────────────────────────────────
 
     def __init__(
@@ -368,31 +367,67 @@ class Transformer(nn.Module):
     ):
         super().__init__()
 
-        import spacy   # local import — keeps module-level clean for unit tests
-        import gdown   # noqa
+        import spacy
+        import gdown
 
         # ── Load spaCy tokenisers ─────────────────────────────────────────
-        try:
-            self.src_tokenizer = spacy.load("de_core_news_sm")
+        try:    self.src_tokenizer = spacy.load("de_core_news_sm")
         except OSError:
             import subprocess, sys
-            subprocess.run(
-                [sys.executable, "-m", "spacy", "download", "de_core_news_sm"],
-                check=True,
-            )
+            subprocess.run([sys.executable,"-m","spacy","download","de_core_news_sm"],check=True)
             self.src_tokenizer = spacy.load("de_core_news_sm")
-
-        try:
-            self.tgt_tokenizer = spacy.load("en_core_web_sm")
+        try:    self.tgt_tokenizer = spacy.load("en_core_web_sm")
         except OSError:
             import subprocess, sys
-            subprocess.run(
-                [sys.executable, "-m", "spacy", "download", "en_core_web_sm"],
-                check=True,
-            )
+            subprocess.run([sys.executable,"-m","spacy","download","en_core_web_sm"],check=True)
             self.tgt_tokenizer = spacy.load("en_core_web_sm")
 
-        # ── Download vocab + weights from Drive if not present ───────────────
+        # ── Download vocab + weights from Drive if not present ────────────
+        if load_weights:
+            if not os.path.exists(self.SRC_VOCAB_PATH):
+                print("[Transformer] Downloading src_vocab.pt …")
+                gdown.download(f"https://drive.google.com/uc?id={self.GDRIVE_SRC_VOCAB_ID}",
+                               self.SRC_VOCAB_PATH, quiet=False)
+            if not os.path.exists(self.TGT_VOCAB_PATH):
+                print("[Transformer] Downloading tgt_vocab.pt …")
+                gdown.download(f"https://drive.google.com/uc?id={self.GDRIVE_TGT_VOCAB_ID}",
+                               self.TGT_VOCAB_PATH, quiet=False)
+
+        # ── Load vocabularies ─────────────────────────────────────────────
+        src_vocab_data = torch.load(self.SRC_VOCAB_PATH, map_location="cpu", weights_only=True)
+        tgt_vocab_data = torch.load(self.TGT_VOCAB_PATH, map_location="cpu", weights_only=True)
+
+        self.src_vocab: dict = src_vocab_data["stoi"]
+        self.tgt_vocab: dict = tgt_vocab_data["stoi"]
+        self.tgt_itos:  dict = {int(k): v for k, v in tgt_vocab_data["itos"].items()}
+
+        src_vocab_size = len(self.src_vocab)
+        tgt_vocab_size = len(self.tgt_vocab)
+
+        self.pad_idx = self.src_vocab.get("<pad>", 0)
+        self.sos_idx = self.tgt_vocab.get("<sos>", 2)
+        self.eos_idx = self.tgt_vocab.get("<eos>", 3)
+        self.unk_idx = self.src_vocab.get("<unk>", 1)
+
+    def __init__(
+        self,
+        src_vocab_size: int = 0,
+        tgt_vocab_size: int = 0,
+        d_model: int = 512,
+        num_heads: int = 8,
+        num_encoder_layers: int = 6,
+        num_decoder_layers: int = 6,
+        d_ff: int = 2048,
+        max_len: int = 128,
+        dropout: float = 0.1,
+        load_weights: bool = True,
+    ):
+        super().__init__()
+
+        import gdown
+        import sentencepiece as spm
+
+        # ── Download vocab + BPE model + weights from Drive if not present ────
         if load_weights:
             if not os.path.exists(self.SRC_VOCAB_PATH):
                 print("[Transformer] Downloading src_vocab.pt …")
@@ -406,27 +441,36 @@ class Transformer(nn.Module):
                     f"https://drive.google.com/uc?id={self.GDRIVE_TGT_VOCAB_ID}",
                     self.TGT_VOCAB_PATH, quiet=False,
                 )
+            if not os.path.exists(self.BPE_MODEL_PATH):
+                print("[Transformer] Downloading BPE model …")
+                gdown.download(
+                    f"https://drive.google.com/uc?id={self.GDRIVE_BPE_MODEL_ID}",
+                    self.BPE_MODEL_PATH, quiet=False,
+                )
 
-        # ── Load vocabularies ─────────────────────────────────────────────
+        # ── Load BPE tokeniser ────────────────────────────────────────────────
+        self.sp = spm.SentencePieceProcessor()
+        self.sp.load(self.BPE_MODEL_PATH)
+
+        # ── Load vocabularies ─────────────────────────────────────────────────
         src_vocab_data = torch.load(self.SRC_VOCAB_PATH, map_location="cpu",
                                     weights_only=True)
         tgt_vocab_data = torch.load(self.TGT_VOCAB_PATH, map_location="cpu",
                                     weights_only=True)
 
-        self.src_vocab: dict = src_vocab_data["stoi"]  # token → idx
+        self.src_vocab: dict = src_vocab_data["stoi"]
         self.tgt_vocab: dict = tgt_vocab_data["stoi"]
-        # Ensure itos keys are integers (torch.save can sometimes store them as strings)
         raw_itos = tgt_vocab_data["itos"]
-        self.tgt_itos: dict = {int(k): v for k, v in raw_itos.items()}
+        self.tgt_itos: dict  = {int(k): v for k, v in raw_itos.items()}
 
         src_vocab_size = len(self.src_vocab)
         tgt_vocab_size = len(self.tgt_vocab)
 
         # Special token indices
-        self.pad_idx   = self.src_vocab.get("<pad>", 0)
-        self.sos_idx   = self.tgt_vocab.get("<sos>", 2)
-        self.eos_idx   = self.tgt_vocab.get("<eos>", 3)
-        self.unk_idx   = self.src_vocab.get("<unk>", 1)
+        self.pad_idx = self.src_vocab.get("<pad>", 0)
+        self.sos_idx = self.tgt_vocab.get("<sos>", 2)
+        self.eos_idx = self.tgt_vocab.get("<eos>", 3)
+        self.unk_idx = self.src_vocab.get("<unk>", 1)
 
         # ── Build model sub-modules ───────────────────────────────────────
         self.encoder = Encoder(src_vocab_size, d_model, num_heads,
@@ -454,35 +498,13 @@ class Transformer(nn.Module):
     # ── Weight loading ────────────────────────────────────────────────────
 
     def _load_weights(self):
-        """Download weights + vocab files from Google Drive if needed, then load."""
         import gdown
-
-        # ── download vocab files if missing ──────────────────────────────
-        if not os.path.exists(self.SRC_VOCAB_PATH):
-            print("[Transformer] Downloading src_vocab.pt from Google Drive …")
-            gdown.download(
-                f"https://drive.google.com/uc?id={self.GDRIVE_SRC_VOCAB_ID}",
-                self.SRC_VOCAB_PATH, quiet=False,
-            )
-
-        if not os.path.exists(self.TGT_VOCAB_PATH):
-            print("[Transformer] Downloading tgt_vocab.pt from Google Drive …")
-            gdown.download(
-                f"https://drive.google.com/uc?id={self.GDRIVE_TGT_VOCAB_ID}",
-                self.TGT_VOCAB_PATH, quiet=False,
-            )
-
-        # ── download model weights if missing ────────────────────────────
         if not os.path.exists(self.WEIGHTS_FILENAME):
             print("[Transformer] Downloading weights from Google Drive …")
-            gdown.download(
-                f"https://drive.google.com/uc?id={self.GDRIVE_FILE_ID}",
-                self.WEIGHTS_FILENAME, quiet=False,
-            )
-
+            gdown.download(f"https://drive.google.com/uc?id={self.GDRIVE_FILE_ID}",
+                           self.WEIGHTS_FILENAME, quiet=False)
         device = next(iter(self.parameters()), torch.zeros(1)).device
-        state  = torch.load(self.WEIGHTS_FILENAME, map_location=device,
-                            weights_only=True)
+        state  = torch.load(self.WEIGHTS_FILENAME, map_location=device, weights_only=True)
         if isinstance(state, dict) and "model_state_dict" in state:
             state = state["model_state_dict"]
         self.load_state_dict(state)
@@ -540,9 +562,6 @@ class Transformer(nn.Module):
     def _tokenize_src(self, sentence: str) -> list[str]:
         return [tok.text.lower() for tok in self.src_tokenizer(sentence)]
 
-    def _tokenize_tgt(self, sentence: str) -> list[str]:
-        return [tok.text.lower() for tok in self.tgt_tokenizer(sentence)]
-
     def _encode_src(self, tokens: list[str]) -> torch.Tensor:
         ids = [self.src_vocab.get(t, self.unk_idx) for t in tokens]
         return torch.tensor(ids, dtype=torch.long)
@@ -550,35 +569,68 @@ class Transformer(nn.Module):
     # ── Greedy decoding / infer ───────────────────────────────────────────
 
     def infer(self, german_sentence: str, max_output_len: int = 50) -> str:
-        """
-        End-to-end inference:
-          1. Tokenise the German sentence with spaCy
-          2. Convert to token IDs using the source vocabulary
-          3. Run the encoder
-          4. Auto-regressively decode until <eos> or max_output_len
-          5. Convert predicted IDs back to an English string and return it
-        """
         self.eval()
-        device = next(self.parameters()).device
-
-        # --- Source encoding ---
-        src_tokens = self._tokenize_src(german_sentence)
-        src_ids    = self._encode_src(src_tokens).unsqueeze(0).to(device)  # (1, src_len)
-        src_mask   = self._make_src_mask(src_ids)
+        device   = next(self.parameters()).device
+        tokens   = self._tokenize_src(german_sentence)
+        src_ids  = self._encode_src(tokens).unsqueeze(0).to(device)
+        src_mask = self._make_src_mask(src_ids)
 
         with torch.no_grad():
-            memory = self.encoder(src_ids, src_mask)
-
-            # Start decoder with <sos> token
-            tgt_ids = torch.tensor(
-                [[self.sos_idx]], dtype=torch.long, device=device
-            )  # (1, 1)
+            memory  = self.encoder(src_ids, src_mask)
+            tgt_ids = torch.tensor([[self.sos_idx]], dtype=torch.long, device=device)
 
             for _ in range(max_output_len):
                 tgt_mask = self._make_tgt_mask(tgt_ids)
                 dec_out  = self.decoder(tgt_ids, memory, tgt_mask, src_mask)
-                logits   = self.projection(dec_out)        # (1, t, vocab)
-                next_id  = logits[0, -1, :].argmax().item()  # scalar int
+                next_id  = self.projection(dec_out)[0, -1, :].argmax().item()
+
+                if next_id == self.eos_idx:
+                    break
+
+                tgt_ids = torch.cat(
+                    [tgt_ids, torch.tensor([[next_id]], dtype=torch.long, device=device)],
+                    dim=1,
+                )
+
+        predicted_ids = tgt_ids[0, 1:].tolist()
+        words = []
+        for tok in [self.tgt_itos.get(i, "<unk>") for i in predicted_ids]:
+            if tok in {".", ",", "!", "?", ";", ":", "'"} and words:
+                words[-1] += tok
+            else:
+                words.append(tok)
+        return " ".join(words)
+
+    # ── Greedy decoding / infer ───────────────────────────────────────────
+
+    def infer(self, german_sentence: str, max_output_len: int = 50) -> str:
+        """
+        End-to-end inference:
+          1. BPE-encode the German sentence
+          2. Run the encoder
+          3. Auto-regressively decode until <eos> or max_output_len
+          4. BPE-decode the predicted IDs to an English string
+        """
+        self.eval()
+        device = next(self.parameters()).device
+
+        # BPE encode source
+        src_ids  = self._tokenize_src(german_sentence)
+        src_ids  = [self.sos_idx] + src_ids + [self.eos_idx]
+        src_tens = torch.tensor([src_ids], dtype=torch.long, device=device)
+        src_mask = self._make_src_mask(src_tens)
+
+        with torch.no_grad():
+            memory  = self.encoder(src_tens, src_mask)
+            tgt_ids = torch.tensor(
+                [[self.sos_idx]], dtype=torch.long, device=device
+            )
+
+            for _ in range(max_output_len):
+                tgt_mask = self._make_tgt_mask(tgt_ids)
+                dec_out  = self.decoder(tgt_ids, memory, tgt_mask, src_mask)
+                logits   = self.projection(dec_out)
+                next_id  = logits[0, -1, :].argmax().item()
 
                 if next_id == self.eos_idx:
                     break
@@ -587,22 +639,8 @@ class Transformer(nn.Module):
                     [tgt_ids,
                      torch.tensor([[next_id]], dtype=torch.long, device=device)],
                     dim=1,
-                )  # (1, t+1)
+                )
 
-        # Decode to string (skip <sos> at index 0)
+        # BPE decode (skip <sos>)
         predicted_ids = tgt_ids[0, 1:].tolist()
-        tokens = [self.tgt_itos.get(i, "<unk>") for i in predicted_ids]
-
-        # Detokenize: attach punctuation to preceding word
-        words = []
-        for tok in tokens:
-            if tok in {".", ",", "!", "?", ";", ":", "'"} and words:
-                words[-1] = words[-1] + tok
-            else:
-                words.append(tok)
-        return " ".join(words)
-
-
-
-
-
+        return self._decode_tgt(predicted_ids)
