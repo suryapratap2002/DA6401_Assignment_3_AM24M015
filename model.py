@@ -1,3 +1,8 @@
+"""
+model.py — Core Transformer architecture
+Implements: Scaled Dot-Product Attention, Multi-Head Attention,
+Positional Encoding, Encoder/Decoder stacks, and the full Transformer.
+"""
 
 import math
 import os
@@ -96,23 +101,24 @@ class MultiHeadAttention(nn.Module):
         key: torch.Tensor,
         value: torch.Tensor,
         mask: torch.Tensor | None = None,
-    ):
+    ) -> torch.Tensor:
         """
         Args:
             query, key, value : (batch, seq, d_model)
             mask              : (batch, 1, seq_q, seq_k) or compatible — True = mask
         Returns:
-            output  : (batch, seq_q, d_model)
-            weights : (batch, heads, seq_q, seq_k)
+            output : (batch, seq_q, d_model)
+            Attention weights stored in self.attn_weights for inspection.
         """
         Q = self._split_heads(self.W_q(query))
         K = self._split_heads(self.W_k(key))
         V = self._split_heads(self.W_v(value))
 
         attn_out, weights = self.attention(Q, K, V, mask=mask)
+        self.attn_weights = weights   # store for external access if needed
 
         output = self.W_o(self._merge_heads(attn_out))
-        return output, weights
+        return output                 # return tensor only, not tuple
 
 
 # ──────────────────────────────────────────────
@@ -196,7 +202,7 @@ class EncoderLayer(nn.Module):
 
     def forward(self, x: torch.Tensor, src_mask: torch.Tensor | None = None):
         # Self-attention sub-layer
-        attn_out, _ = self.self_attn(x, x, x, mask=src_mask)
+        attn_out = self.self_attn(x, x, x, mask=src_mask)
         x = self.norm1(x + self.dropout(attn_out))
         # FFN sub-layer
         ffn_out = self.ffn(x)
@@ -240,10 +246,10 @@ class DecoderLayer(nn.Module):
         src_mask: torch.Tensor | None = None,
     ):
         # Masked self-attention
-        sa_out, _ = self.self_attn(x, x, x, mask=tgt_mask)
+        sa_out = self.self_attn(x, x, x, mask=tgt_mask)
         x = self.norm1(x + self.dropout(sa_out))
         # Cross-attention
-        ca_out, _ = self.cross_attn(x, memory, memory, mask=src_mask)
+        ca_out = self.cross_attn(x, memory, memory, mask=src_mask)
         x = self.norm2(x + self.dropout(ca_out))
         # FFN
         ffn_out = self.ffn(x)
@@ -336,9 +342,11 @@ class Transformer(nn.Module):
         english = model.infer(german_sentence)
     """
 
-    GDRIVE_FILE_ID:       str = "1KFXlfeR8aL8Br3nmVZjg8oay9_5Isf_i"
-    GDRIVE_SRC_VOCAB_ID:  str = "12BOXH_dwIeTWau1BunljHHpIdzUhLyam"
-    GDRIVE_TGT_VOCAB_ID:  str = "18WTsnTDU4US-59_r__HpV2mYm-ivp_1J"
+    # ── class-level paths / IDs (edit before submission) ──────────────────
+    # Google Drive file-id of your saved checkpoint (weights only, state_dict)
+    GDRIVE_FILE_ID:       str = "1KFXlfeR8aL8Br3nmVZjg8oay9_5Isf_i"    # ← replace
+    GDRIVE_SRC_VOCAB_ID:  str = "12BOXH_dwIeTWau1BunljHHpIdzUhLyam"  # ← replace
+    GDRIVE_TGT_VOCAB_ID:  str = "18WTsnTDU4US-59_r__HpV2mYm-ivp_1J"  # ← replace
 
     WEIGHTS_FILENAME:  str = "transformer_best.pt"
     SRC_VOCAB_PATH:    str = "src_vocab.pt"
@@ -347,13 +355,13 @@ class Transformer(nn.Module):
 
     def __init__(
         self,
-        src_vocab_size: int = 0,       # auto-loaded from file when 0
+        src_vocab_size: int = 0,
         tgt_vocab_size: int = 0,
-        d_model: int = 512,            # ← must match what you trained with
+        d_model: int = 512,
         num_heads: int = 8,
-        num_encoder_layers: int = 6,   # ← must match what you trained with
+        num_encoder_layers: int = 6,
         num_decoder_layers: int = 6,
-        d_ff: int = 2048,              # ← must match what you trained with
+        d_ff: int = 2048,
         max_len: int = 128,
         dropout: float = 0.1,
         load_weights: bool = True,
@@ -407,7 +415,9 @@ class Transformer(nn.Module):
 
         self.src_vocab: dict = src_vocab_data["stoi"]  # token → idx
         self.tgt_vocab: dict = tgt_vocab_data["stoi"]
-        self.tgt_itos:  dict = tgt_vocab_data["itos"]  # idx → token
+        # Ensure itos keys are integers (torch.save can sometimes store them as strings)
+        raw_itos = tgt_vocab_data["itos"]
+        self.tgt_itos: dict = {int(k): v for k, v in raw_itos.items()}
 
         src_vocab_size = len(self.src_vocab)
         tgt_vocab_size = len(self.tgt_vocab)
@@ -534,7 +544,12 @@ class Transformer(nn.Module):
         return [tok.text.lower() for tok in self.tgt_tokenizer(sentence)]
 
     def _encode_src(self, tokens: list[str]) -> torch.Tensor:
-        ids = [self.src_vocab.get(t, self.unk_idx) for t in tokens]
+        ids = []
+        for t in tokens:
+            idx = self.src_vocab.get(t, self.unk_idx)
+            if idx == self.unk_idx:
+                print(f"[infer] WARNING: '{t}' not in src vocab → <unk>")
+            ids.append(idx)
         return torch.tensor(ids, dtype=torch.long)
 
     # ── Greedy decoding / infer ───────────────────────────────────────────
