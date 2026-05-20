@@ -2,7 +2,7 @@
 
 Github link:  https://github.com/suryapratap2002/DA6401_Assignment_3_AM24M015
 
-Wandb Report Link: 
+Wandb Report Link:  https://wandb.ai/spsinghiitian2020-iitmaana/da6401_assignment_3/reports/Assignment-3---VmlldzoxNjk1MjQwMQ?accessToken=lgtjbtu5alk3b69iy4qicokqy05j25zg0tupgwej4careimauvc54t5ce3az5kcb
 
 
 Implementation of **"Attention Is All You Need"** (Vaswani et al., 2017) for Neural Machine Translation on the Multi30k dataset, built from scratch using PyTorch.
