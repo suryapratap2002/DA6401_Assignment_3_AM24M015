@@ -1,19 +1,8 @@
-"""
-model.py — Core Transformer architecture
-Implements: Scaled Dot-Product Attention, Multi-Head Attention,
-Positional Encoding, Encoder/Decoder stacks, and the full Transformer.
-"""
-
 import math
 import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-
-# ──────────────────────────────────────────────
-# 1.  Scaled Dot-Product Attention
-# ──────────────────────────────────────────────
 
 class ScaledDotProductAttention(nn.Module):
     """Attention(Q, K, V) = softmax( QK^T / sqrt(d_k) ) V"""
@@ -31,11 +20,6 @@ class ScaledDotProductAttention(nn.Module):
         weights = torch.nan_to_num(weights, nan=0.0)
         weights = self.dropout(weights)
         return torch.matmul(weights, value), weights
-
-
-# ──────────────────────────────────────────────
-# 2.  Multi-Head Attention
-# ──────────────────────────────────────────────
 
 class MultiHeadAttention(nn.Module):
     def __init__(self, d_model: int = 512, num_heads: int = 8, dropout: float = 0.1):
@@ -66,11 +50,6 @@ class MultiHeadAttention(nn.Module):
         self.attn_weights = weights          # stored for inspection
         return self.W_o(self._merge_heads(attn_out))   # tensor only
 
-
-# ──────────────────────────────────────────────
-# 3.  Positional Encoding
-# ──────────────────────────────────────────────
-
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model: int = 512, max_len: int = 5000, dropout: float = 0.1):
         super().__init__()
@@ -82,15 +61,10 @@ class PositionalEncoding(nn.Module):
         )
         pe[:, 0::2]   = torch.sin(position * div_term)
         pe[:, 1::2]   = torch.cos(position * div_term)
-        self.register_buffer("pe", pe.unsqueeze(0))   # (1, max_len, d_model)
+        self.register_buffer("pe", pe.unsqueeze(0))   
 
     def forward(self, x):
         return self.dropout(x + self.pe[:, :x.size(1), :])
-
-
-# ──────────────────────────────────────────────
-# 4.  Position-wise Feed-Forward
-# ──────────────────────────────────────────────
 
 class PositionwiseFeedForward(nn.Module):
     def __init__(self, d_model: int = 512, d_ff: int = 2048, dropout: float = 0.1):
@@ -101,11 +75,6 @@ class PositionwiseFeedForward(nn.Module):
 
     def forward(self, x):
         return self.linear2(self.dropout(F.relu(self.linear1(x))))
-
-
-# ──────────────────────────────────────────────
-# 5.  Encoder Layer
-# ──────────────────────────────────────────────
 
 class EncoderLayer(nn.Module):
     def __init__(self, d_model=512, num_heads=8, d_ff=2048, dropout=0.1):
@@ -120,11 +89,6 @@ class EncoderLayer(nn.Module):
         x = self.norm1(x + self.dropout(self.self_attn(x, x, x, mask=src_mask)))
         x = self.norm2(x + self.dropout(self.ffn(x)))
         return x
-
-
-# ──────────────────────────────────────────────
-# 6.  Decoder Layer
-# ──────────────────────────────────────────────
 
 class DecoderLayer(nn.Module):
     def __init__(self, d_model=512, num_heads=8, d_ff=2048, dropout=0.1):
@@ -143,11 +107,6 @@ class DecoderLayer(nn.Module):
         x = self.norm3(x + self.dropout(self.ffn(x)))
         return x
 
-
-# ──────────────────────────────────────────────
-# 7.  Encoder Stack
-# ──────────────────────────────────────────────
-
 class Encoder(nn.Module):
     def __init__(self, vocab_size, d_model=512, num_heads=8,
                  num_layers=6, d_ff=2048, max_len=5000, dropout=0.1):
@@ -164,11 +123,6 @@ class Encoder(nn.Module):
         for layer in self.layers:
             x = layer(x, src_mask)
         return x
-
-
-# ──────────────────────────────────────────────
-# 8.  Decoder Stack
-# ──────────────────────────────────────────────
 
 class Decoder(nn.Module):
     def __init__(self, vocab_size, d_model=512, num_heads=8,
@@ -188,22 +142,8 @@ class Decoder(nn.Module):
         return x
 
 
-# ──────────────────────────────────────────────
-# 9.  Full Transformer
-# ──────────────────────────────────────────────
-
 class Transformer(nn.Module):
-    """
-    Full Transformer for German → English NMT.
-    Vocab, tokenizers, and weights all loaded inside __init__.
 
-    Autograder usage:
-        model = Transformer().to(device)
-        model.eval()
-        english = model.infer(german_sentence)
-    """
-
-    # ── Edit these before submission ──────────────────────────────────────
     GDRIVE_FILE_ID:      str = "1KFXlfeR8aL8Br3nmVZjg8oay9_5Isf_i"
     GDRIVE_SRC_VOCAB_ID: str = "12BOXH_dwIeTWau1BunljHHpIdzUhLyam"
     GDRIVE_TGT_VOCAB_ID: str = "18WTsnTDU4US-59_r__HpV2mYm-ivp_1J"
@@ -211,7 +151,6 @@ class Transformer(nn.Module):
     WEIGHTS_FILENAME: str = "transformer_best.pt"
     SRC_VOCAB_PATH:   str = "src_vocab.pt"
     TGT_VOCAB_PATH:   str = "tgt_vocab.pt"
-    # ──────────────────────────────────────────────────────────────────────
 
     def __init__(
         self,
@@ -228,10 +167,10 @@ class Transformer(nn.Module):
     ):
         super().__init__()
 
-        import spacy   # local import — keeps module-level clean
+        import spacy   
         import gdown
 
-        # ── Load spaCy tokenisers ─────────────────────────────────────────
+
         try:
             self.src_tokenizer = spacy.load("de_core_news_sm")
         except OSError:
@@ -248,7 +187,6 @@ class Transformer(nn.Module):
                             "en_core_web_sm"], check=True)
             self.tgt_tokenizer = spacy.load("en_core_web_sm")
 
-        # ── Download vocab files if missing ───────────────────────────────
         if load_weights:
             if not os.path.exists(self.SRC_VOCAB_PATH):
                 print("[Transformer] Downloading src_vocab.pt …")
@@ -263,7 +201,6 @@ class Transformer(nn.Module):
                     self.TGT_VOCAB_PATH, quiet=False,
                 )
 
-        # ── Load vocabularies ─────────────────────────────────────────────
         src_vocab_data = torch.load(self.SRC_VOCAB_PATH, map_location="cpu",
                                     weights_only=True)
         tgt_vocab_data = torch.load(self.TGT_VOCAB_PATH, map_location="cpu",
@@ -281,7 +218,6 @@ class Transformer(nn.Module):
         self.eos_idx = self.tgt_vocab.get("<eos>", 3)
         self.unk_idx = self.src_vocab.get("<unk>", 1)
 
-        # ── Build model sub-modules ───────────────────────────────────────
         self.encoder    = Encoder(src_vocab_size, d_model, num_heads,
                                   num_encoder_layers, d_ff, max_len, dropout)
         self.decoder    = Decoder(tgt_vocab_size, d_model, num_heads,
@@ -290,7 +226,6 @@ class Transformer(nn.Module):
 
         self._init_parameters()
 
-        # ── Load weights ──────────────────────────────────────────────────
         if load_weights:
             self._load_weights()
 
@@ -315,7 +250,6 @@ class Transformer(nn.Module):
         self.load_state_dict(state)
         print(f"[Transformer] Weights loaded from '{self.WEIGHTS_FILENAME}'.")
 
-    # ── Masks ─────────────────────────────────────────────────────────────
 
     def _make_src_mask(self, src):
         return (src == self.pad_idx).unsqueeze(1).unsqueeze(2)
@@ -326,16 +260,12 @@ class Transformer(nn.Module):
         pad_mask = (tgt == self.pad_idx).unsqueeze(1).unsqueeze(2)
         return causal.unsqueeze(0).unsqueeze(0) | pad_mask
 
-    # ── Forward ───────────────────────────────────────────────────────────
-
     def forward(self, src, tgt, src_mask=None, tgt_mask=None):
         if src_mask is None: src_mask = self._make_src_mask(src)
         if tgt_mask is None: tgt_mask = self._make_tgt_mask(tgt)
         memory  = self.encoder(src, src_mask)
         dec_out = self.decoder(tgt, memory, tgt_mask, src_mask)
         return self.projection(dec_out)
-
-    # ── Tokenisation ──────────────────────────────────────────────────────
 
     def _tokenize_src(self, sentence: str):
         return [tok.text.lower() for tok in self.src_tokenizer(sentence)]
@@ -345,8 +275,6 @@ class Transformer(nn.Module):
             [self.src_vocab.get(t, self.unk_idx) for t in tokens],
             dtype=torch.long,
         )
-
-    # ── Inference ─────────────────────────────────────────────────────────
 
     def infer(self, german_sentence: str, max_output_len: int = 50) -> str:
         """
