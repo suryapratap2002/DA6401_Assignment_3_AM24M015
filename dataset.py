@@ -1,7 +1,3 @@
-"""
-dataset.py — Multi30k with spaCy word-level tokenisation.
-"""
-
 import os
 import torch
 from torch.utils.data import Dataset, DataLoader
