@@ -1,7 +1,3 @@
-"""
-train.py — Improved Transformer training for Multi30k BLEU optimization
-"""
-
 import argparse
 import gc
 import math
@@ -26,11 +22,6 @@ try:
     USE_SACREBLEU = True
 except ImportError:
     USE_SACREBLEU = False
-
-
-# ============================================================
-# Training Transformer
-# ============================================================
 
 class _TrainTransformer(nn.Module):
 
@@ -98,11 +89,6 @@ class _TrainTransformer(nn.Module):
 
         return self.projection(out)
 
-
-# ============================================================
-# Beam Search Decoding
-# ============================================================
-
 @torch.no_grad()
 def beam_search_decode(
     model,
@@ -114,9 +100,7 @@ def beam_search_decode(
 ):
 
     model.eval()
-
     src = src.to(device)
-
     batch_size = src.size(0)
 
     src_mask = (src == PAD_IDX).unsqueeze(1).unsqueeze(2)
@@ -209,11 +193,6 @@ def beam_search_decode(
 
     return results
 
-
-# ============================================================
-# BLEU
-# ============================================================
-
 def detokenize(tokens):
 
     no_space_before = set(".,!?;:'")
@@ -277,11 +256,6 @@ def evaluate_bleu(
         ).score
 
     return 0.0
-
-
-# ============================================================
-# Train Epoch
-# ============================================================
 
 def train_epoch(
     model,
@@ -356,12 +330,7 @@ def train_epoch(
         del src, tgt, tgt_in, tgt_out, logits, loss
 
     return total_loss / max(total_tokens, 1)
-
-
-# ============================================================
-# Validation Loss
-# ============================================================
-
+    
 @torch.no_grad()
 def evaluate_loss(
     model,
@@ -399,11 +368,6 @@ def evaluate_loss(
         total_tokens += non_pad
 
     return total_loss / max(total_tokens, 1)
-
-
-# ============================================================
-# Args
-# ============================================================
 
 def parse_args():
 
@@ -455,11 +419,6 @@ def parse_args():
     p.add_argument("--log_interval", type=int, default=50)
 
     return p.parse_args()
-
-
-# ============================================================
-# Main
-# ============================================================
 
 def main():
 
